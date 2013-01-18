@@ -4,14 +4,14 @@
 
 h1. HBaseShellPro
 
-
 HBaseShellPro is a powerful Hbase Shell extention. It provide more commond then default hbase shell.
 
 1. Can use filter in all commond
 2. Can use Regular Expression in commond parameter
 3. More simple more light then hbase shell
 
-Now it support hbase-0.20.4.
+Now it support hbase-0.20.4
+
 
 h2. Licnese
 
@@ -20,16 +20,16 @@ MIT License (see "LICENSE":http://github.com/zaharije/HBaseXplorer/blob/master/L
 
 h2. Usage
 
----------------------------------------
+
 1. vi conf/hbase-site.xml
 
   modify hbase.zookeeper.quorum
 
 2. run.rb
 
-Support Commond List:
 
----------------------------------------
+h2. Commond List
+
 
 CLEAR - clear table contents
 
