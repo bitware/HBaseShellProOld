@@ -1,5 +1,4 @@
 
-
 h1. HBaseShellPro
 
 HBaseShellPro is a powerful Hbase Shell extention.
@@ -149,4 +148,4 @@ Xia Xiongjun
 
 h1. Sponser
 
-BitWare Inc. (http://www.bit-ware.co.jp mailto:opensource@bit-ware.co.jp)
+BitWare Inc. (http://www.bit-ware.co.jp opensource@bit-ware.co.jp)
