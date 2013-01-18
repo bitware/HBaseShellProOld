@@ -1,4 +1,3 @@
-
 h1. HBaseShellPro
 
 HBaseShellPro is a powerful Hbase Shell extention.
@@ -13,7 +12,7 @@ Now it support hbase-0.20.4
 
 h2. Licnese
 
-MIT License (see "LICENSE":http://github.com/zaharije/HBaseXplorer/blob/master/LICENSE)
+MIT License (see "LICENSE":http://opensource.org/licenses/mit-license.php)
 
 
 h2. Usage
