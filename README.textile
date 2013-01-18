@@ -8,7 +8,8 @@ HBaseShellPro is a powerful Hbase Shell extention.
 
 1. Can use filter in all command
 2. Can use Regular Expression in command parameter
-3. More simple more lighter then hbase shell
+3. Log all command output
+4. More simple more lighter then hbase shell
 
 Now it support hbase-0.20.4
 
