@@ -3,7 +3,7 @@
 
 
 h1. HBaseShellPro
-=============
+
 
 HBaseShellPro is a powerful Hbase Shell extention. It provide more commond then default hbase shell.
 
@@ -19,6 +19,7 @@ MIT License (see "LICENSE":http://github.com/zaharije/HBaseXplorer/blob/master/L
 
 
 h2. Usage
+
 ---------------------------------------
 1. vi conf/hbase-site.xml
 
