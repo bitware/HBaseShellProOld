@@ -144,4 +144,10 @@ VERSION - show version message
    - '5~' -> page up, move to first history entry
    - '6~' -> page down, move to last history entry
 
----------------------------------------
+h1. Author
+
+  Xia Xiongjun
+
+h1. Sponser
+
+BitWare Inc. (http://www.bit-ware.co.jp)
