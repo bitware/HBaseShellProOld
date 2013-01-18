@@ -4,11 +4,11 @@
 
 h1. HBaseShellPro
 
-HBaseShellPro is a powerful Hbase Shell extention. It provide more commond then default hbase shell.
+HBaseShellPro is a powerful Hbase Shell extention.
 
-1. Can use filter in all commond
-2. Can use Regular Expression in commond parameter
-3. More simple more light then hbase shell
+1. Can use filter in all command
+2. Can use Regular Expression in command parameter
+3. More simple more lighter then hbase shell
 
 Now it support hbase-0.20.4
 
@@ -28,7 +28,7 @@ h2. Usage
 2. run.rb
 
 
-h2. Commond List
+h2. Command List
 
 
 CLEAR - clear table contents
