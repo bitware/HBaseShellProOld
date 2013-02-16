@@ -7,7 +7,7 @@ HBaseShellPro is a powerful Hbase Shell extention.
 3. Log all command output
 4. More simple more lighter then hbase shell
 
-Now it support hbase-0.20.4
+Now it support hbase-0.20.4, hbase-0.94.2(https://github.com/bit-ware/HBaseShellPro/tree/0.94)
 
 
 h2. Licnese
