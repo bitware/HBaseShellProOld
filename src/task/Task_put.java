@@ -1,62 +1,51 @@
 package task;
 
 import java.io.IOException;
-
+import java.util.Map;
+import org.apache.hadoop.hbase.TableNotFoundException;
 import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.regionserver.NoSuchColumnFamilyException;
 
 import utils.Utils;
 
+import main.HBShell;
+
 public class Task_put extends TaskBase {
-    @Override
-    protected String description() {
-        return "put a cell 'value' at specified table/row/family:qualifier";
+    public Task_put(Map<String, Object> patternMap) {
+        super(patternMap);
     }
 
     @Override
-    protected String usage() {
-        return "put table_name row_key family_name qualifier_name value";
-    }
-
-    @Override
-    public String example() {
-        return "put test_table row1 family1 qualifier1 value1";
-    }
-
-    @Override
-    protected boolean checkArgNumber(int argNumber) {
-        return argNumber == 5;
-    }
-
-    @Override
-    protected void assignParam(String[] args) {
-        levelParam.put(Level.TABLE,     args[0]);
-        levelParam.put(Level.ROW,       args[1]);
-        levelParam.put(Level.FAMILY,    args[2]);
-        levelParam.put(Level.QUALIFIER, args[3]);
-        levelParam.put(Level.VALUE,     args[4]);
-    }
-
-    @Override
-    public void execute()
+    public void go()
     throws IOException {
-        String table     = (String) levelParam.get(Level.TABLE);
-        String row       = (String) levelParam.get(Level.ROW);
-        String family    = (String) levelParam.get(Level.FAMILY);
-        String qualifier = (String) levelParam.get(Level.QUALIFIER);
-        String value     = (String) levelParam.get(Level.VALUE);
+        String tableName     = patternMap.get(HBShell.TABLE_NAME).toString();
+        String rowKey        = patternMap.get(HBShell.ROW_KEY).toString();
+        String familyName    = patternMap.get(HBShell.FAMILY_NAME).toString();
+        String qualifierName = patternMap.get(HBShell.QUALIFIER_NAME).toString();
+        String value         = patternMap.get(HBShell.VALUE).toString();
 
-        HTable hTable = Utils.getTable(table);
+        HTable hTable = null;
 
         try {
-            try {
-                Utils.put(hTable, row, family, qualifier, value);
-            } finally {
+            if (!Utils.tableExists(tableName)) {
+                throw new NoSuchColumnFamilyException("Table '" + tableName + "' not found");
+            }
+
+            hTable = Utils.getTable(tableName);
+
+            if (!Utils.getFamilies(hTable).contains(familyName)) {
+                throw new NoSuchColumnFamilyException("Family '" + familyName + "' does not exist in table '" + tableName + "'");
+            }
+
+            Utils.put(hTable, rowKey, familyName, qualifierName, value);
+        } catch (TableNotFoundException e) {
+            log.error(null, e);
+        } catch (NoSuchColumnFamilyException e) {
+            log.error(null, e);
+        } finally {
+            if (hTable != null) {
                 hTable.close();
             }
-        } catch (NoSuchColumnFamilyException e) {
-            // make error clear
-            throw new NoSuchColumnFamilyException(family);
         }
     }
 }

@@ -1,0 +1,23 @@
+<configuration>
+<property>
+<name>hbase.rootdir</name>
+<value>hdfs://192.168.56.56:9200/hbase</value>
+</property>
+<property>
+<name>hbase.cluster.distributed</name>
+<value>true</value>
+</property>
+
+<property> 
+<name>hbase.master</name> 
+<value>hdfs://192.168.56.56:60000</value> 
+</property> 
+<property>
+<name>hbase.zookeeper.quorum</name>
+<value>192.168.56.56</value>
+</property>
+<property skipInDoc="true">
+<name>hbase.defaults.for.version</name>
+<value>0.92.4</value>
+</property>
+</configuration>

@@ -1,39 +1,27 @@
 package main;
 
-import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.lang.reflect.Constructor;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Properties;
 import java.util.Scanner;
 import java.util.StringTokenizer;
-
-import jline.ConsoleReader;
-
-import org.apache.commons.io.FileUtils;
+import java.util.regex.Pattern;
 
 import task.Task;
-import task.TaskBase;
-import task.Task_history;
+import task.TaskBase.TravelLevel;
 import task.TaskBase.TaskType;
-import utils.MyConsoleReader;
-import utils.PropertiesHelper;
 import utils.ResultLog;
-import utils.RootLog;
 import utils.Utils;
 
 public class HBShell {
-    public static final String HISTORY_FILE = Utils.makePath(RootLog.logDir, "history.txt");
-
-    private static final String[] DEFAULT_CMD_ARGS_FOR_SINGLE_SESSION = new String[] {"version"};
-
-    private static final String CONFIRM_YES    = "yes";
-    private static final String ENCODING       = "UTF-8";
-    private static final String LINE_SEPARATOR = System.getProperty("line.separator", "\n");
-
     public enum SessionMode {
         auto,
         single,
@@ -41,132 +29,348 @@ public class HBShell {
     }
 
     private static final String MAIN_CONF_FILE = "./conf/config.ini";
-
     private static final ResultLog log         = ResultLog.getLog();
-    private static final File      historyFile = new File(HISTORY_FILE);
 
-    // config default values
+    public static final String TABLE_NAME     = "TableName";
+    public static final String ROW_KEY        = "RowKey";
+    public static final String FAMILY_NAME    = "FamilyName";
+    public static final String QUALIFIER_NAME = "QualifierName";
+    public static final String VALUE          = "Value";
+    public static final String COMMON         = "Common";
+
     public static Long        maxPrintableDetectCnt   = 1000L;
     public static Long        maxHexStringLength      = 8L;
     public static Boolean     travelRowFBlockFamilies = true;
     public static SessionMode sessionMode             = SessionMode.auto;
-    public static Long        maxResultLogFileCount   = 10L;
-    public static Long        defaultHistoryCount     = 30L;
+    public static Long        MaxResultLogFileCount   = 10L;
 
-    public static List<String> alias_clear    = Arrays.asList("c", "cle", "clr");
-    public static List<String> alias_connect  = Arrays.asList("con");
-    public static List<String> alias_create   = Arrays.asList("cre");
-    public static List<String> alias_delete   = Arrays.asList("del");
-    public static List<String> alias_describe = Arrays.asList("d", "des");
-    public static List<String> alias_filter   = Arrays.asList("f");
-    public static List<String> alias_get      = Arrays.asList("g");
-    public static List<String> alias_help     = Arrays.asList("h");
-    public static List<String> alias_history  = Arrays.asList("his");
-    public static List<String> alias_list     = Arrays.asList("l", "ls");
-    public static List<String> alias_put      = Arrays.asList("p");
-    public static List<String> alias_quit     = Arrays.asList("e", "q", "exit");
-    public static List<String> alias_rename   = Arrays.asList("r", "ren");
-    public static List<String> alias_scan     = Arrays.asList("s");
-    public static List<String> alias_version  = Arrays.asList("v", "ver");
+    private static Scanner inputScanner = null;
 
-    public static String format_table         = "T: %s";
-    public static String format_row           = " R: %s";
-    public static String format_family        = "  F: %s";
-    public static String format_qualifier     = "   Q: %14s";
-    public static String format_qualifierOmit = "   %s";
-    public static String format_value         = " = %s";
-
-    private static Scanner       inputScanner  = null; // for windows
-    private static ConsoleReader consoleReader = null; // for linux
-    private static String        lastCmd       = Task_history.getLastCmd();
-
-    private static void init() {
+    private static void init()
+    throws FileNotFoundException, IOException {
         // read main configure file
-        Properties properties = PropertiesHelper.getProperties(MAIN_CONF_FILE);
+        Properties properties = new Properties();
+        properties.load(new FileInputStream(MAIN_CONF_FILE));
 
-        maxPrintableDetectCnt   = PropertiesHelper.getProperty(properties, "maxPrintableDetectCnt",     maxPrintableDetectCnt);
-        maxHexStringLength      = PropertiesHelper.getProperty(properties, "maxHexStringLength",        maxHexStringLength);
-        travelRowFBlockFamilies = PropertiesHelper.getProperty(properties, "travelRowFBlockFamilies",   travelRowFBlockFamilies);
-        sessionMode             = PropertiesHelper.getProperty(properties, "sessionMode",               sessionMode);
-        maxResultLogFileCount   = PropertiesHelper.getProperty(properties, "maxResultLogFileCount",     maxResultLogFileCount);
-        defaultHistoryCount     = PropertiesHelper.getProperty(properties, "defaultHistoryCount",       defaultHistoryCount);
-
-        alias_clear    = PropertiesHelper.getProperty(properties, "alias_clear",    alias_clear);
-        alias_connect  = PropertiesHelper.getProperty(properties, "alias_connect",  alias_connect);
-        alias_create   = PropertiesHelper.getProperty(properties, "alias_create",   alias_create);
-        alias_delete   = PropertiesHelper.getProperty(properties, "alias_delete",   alias_delete);
-        alias_describe = PropertiesHelper.getProperty(properties, "alias_describe", alias_describe);
-        alias_filter   = PropertiesHelper.getProperty(properties, "alias_filter",   alias_filter);
-        alias_get      = PropertiesHelper.getProperty(properties, "alias_get",      alias_get);
-        alias_help     = PropertiesHelper.getProperty(properties, "alias_help",     alias_help);
-        alias_history  = PropertiesHelper.getProperty(properties, "alias_history",  alias_history);
-        alias_list     = PropertiesHelper.getProperty(properties, "alias_list",     alias_list);
-        alias_put      = PropertiesHelper.getProperty(properties, "alias_put",      alias_put);
-        alias_quit     = PropertiesHelper.getProperty(properties, "alias_quit",     alias_quit);
-        alias_rename   = PropertiesHelper.getProperty(properties, "alias_rename",   alias_rename);
-        alias_scan     = PropertiesHelper.getProperty(properties, "alias_scan",     alias_scan);
-        alias_version  = PropertiesHelper.getProperty(properties, "alias_version",  alias_version);
-
-        format_table         = removeQuotes(PropertiesHelper.getProperty(properties, "format_table",         format_table));
-        format_row           = removeQuotes(PropertiesHelper.getProperty(properties, "format_row",           format_row));
-        format_family        = removeQuotes(PropertiesHelper.getProperty(properties, "format_family",        format_family));
-        format_qualifier     = removeQuotes(PropertiesHelper.getProperty(properties, "format_qualifier",     format_qualifier));
-        format_qualifierOmit = removeQuotes(PropertiesHelper.getProperty(properties, "format_qualifierOmit", format_qualifierOmit));
-        format_value         = removeQuotes(PropertiesHelper.getProperty(properties, "format_value",         format_value));
+        maxPrintableDetectCnt   = Long.valueOf(properties.getProperty("maxPrintableDetectCnt", maxPrintableDetectCnt.toString()));
+        maxHexStringLength      = Long.valueOf(properties.getProperty("maxHexStringLength", maxHexStringLength.toString()));
+        travelRowFBlockFamilies = Boolean.valueOf(properties.getProperty("travelRowFBlockFamilies", travelRowFBlockFamilies.toString()));
+        sessionMode             = SessionMode.valueOf(properties.getProperty("sessionMode", sessionMode.toString()));
+        MaxResultLogFileCount   = Long.valueOf(properties.getProperty("MaxResultLogFileCount", MaxResultLogFileCount.toString()));
 
         if (sessionMode == SessionMode.auto) {
             sessionMode = Utils.isLinux() ? SessionMode.single : SessionMode.multi;
         }
-    }
 
-    private static String removeQuotes(String string) {
-        return string.substring(1, string.length() - 1);
+        if (sessionMode == SessionMode.multi) {
+            inputScanner = new Scanner(System.in);
+        }
     }
 
     private static void exit() {
-        closeInputScanner();
+        if (inputScanner != null) {
+            inputScanner.close();
+        }
     }
 
-    private static void doTask(String[] cmdArgs)
+    public static TaskType    taskType    = null;
+    public static TravelLevel travelLevel = null;
+
+    private static Map<String, Object> patternMap = null;
+    private static String              helpTopic  = null;
+
+    private static void initCmd() {
+        taskType    = null;
+        travelLevel = null;
+        patternMap  = new HashMap<String, Object>();
+        helpTopic   = null;
+    }
+
+    private static Map<String, String[]> helpMap = null;
+
+    private static void printHelp()
     throws IOException {
-        TaskType taskType = TaskBase.getTaskType(cmdArgs[0]);
-        Task     task     = TaskBase.getTask(taskType);
+        if (helpMap == null) {
+            helpMap = new HashMap<String, String[]>();
 
-        String[] args = new String[cmdArgs.length - 1];
-        System.arraycopy(cmdArgs, 1, args, 0, cmdArgs.length - 1);        // remove first arg(task type)
+            helpMap.put("list",
+                        new String[] {
+                            "list database data at a specified level",
+                            "list [table_name_pattern [row_key_pattern [family_name_pattern [qualifier_name_pattern [value_pattern]]]]]"
+                        });
+            helpMap.put("scan",
+                        new String[] {
+                            "scan database data with given filter",
+                            "scan [table_name_pattern [row_key_pattern [family_name_pattern [qualifier_name_pattern [value_pattern]]]]]"
+                        });
+            helpMap.put("filter",
+                        new String[] {
+                            "filter database data with given filter, common_pattern(OR) will be used if some pattern does not exist",
+                            "filter [table_name_pattern [row_key_pattern [family_name_pattern [qualifier_name_pattern [value_pattern]]]]] common_pattern"
+                        });
+            helpMap.put("put",
+                        new String[] {
+                            "put a cell 'value' at specified table/row/family:qualifier",
+                            "put table_name row_key family_name qualifier_name value"
+                        });
+            helpMap.put("delete",
+                        new String[] {
+                            "delete data in database with given filter",
+                            "delete [table_name_pattern [row_key_pattern [family_name_pattern [qualifier_name_pattern [value_pattern]]]]]",
+                        });
+            helpMap.put("create",
+                        new String[] {
+                            "create table",
+                            "create table_name family_name1 [family_name2 ...]"
+                        });
+            helpMap.put("clear",
+                        new String[] {
+                            "clear table",
+                            "clear [table_name_pattern]"
+                        });
+            helpMap.put("describe",
+                        new String[] {
+                            "describe the named table",
+                            "describe [table_name_pattern [family_name_pattern]]"
+                        });
+            helpMap.put("exit",
+                        new String[] {
+                            "exit the shell",
+                            "exit"
+                        });
+            helpMap.put("quit",
+                        new String[] {
+                            "exit the shell",
+                            "exit"
+                        });
+            helpMap.put("help",
+                        new String[] {
+                            "show help message",
+                            "help [helpTopic]"
+                        });
+        }
 
-        task.doTask(args);
+        if (helpTopic == null) {
+            for (String key : helpMap.keySet()) {
+                printHelpOn(key);
+            }
+        } else if (helpMap.get(helpTopic) == null) {
+            log.warn("No help on '" + helpTopic + "' found!");
+        } else {
+            printHelpOn(helpTopic);
+        }
     }
 
+    private static void printHelpOn(String helpTopic)
+    throws IOException {
+        String[] body = helpMap.get(helpTopic);
+
+        String info  = body[0];
+        String usage = body[1];
+
+        log.info(helpTopic + " - " + info);
+        log.info(usage);
+        log.info("");
+    }
+
+    private static boolean parseArgs(String[] args)
+    throws IOException {
+        log.startNew();
+
+        if (args.length == 0) {
+            return false;
+        }
+
+        // task type
+        try {
+            taskType = TaskType.valueOf(args[0].toUpperCase());
+        } catch (IllegalArgumentException e) {
+            log.error(null, e);
+            return false;
+        }
+
+        // argument number
+
+        if (taskType == TaskType.PUT && args.length != 6 ||
+            taskType == TaskType.CREATE && args.length < 3 ||
+            taskType == TaskType.FILTER && args.length < 2)
+        {
+            try {
+                throw new Exception("invalid argument number '" + args.length + "'");
+            } catch (Exception e) {
+                log.error(null, e);
+                return false;
+            }
+        }
+
+        // special task: help
+        if (taskType == TaskType.HELP) {
+            if (args.length == 2) {
+                helpTopic = args[1];
+            }
+
+            return true;
+        }
+
+        // special task: exit / quit
+        if (taskType == TaskType.EXIT || taskType == TaskType.QUIT) {
+            return true;
+        }
+
+        // travelLevel
+        if (taskType == TaskType.LIST || taskType == TaskType.DELETE) {
+            travelLevel = TravelLevel.TABLE;
+
+            if (args.length >= 2) {
+                travelLevel = TravelLevel.values()[args.length - 2];
+            }
+        }
+
+        if (taskType == TaskType.DESCRIBE || taskType == TaskType.CLEAR) {
+            travelLevel = TravelLevel.TABLE;
+        }
+
+        if (taskType == TaskType.SCAN || taskType == TaskType.FILTER) {
+            travelLevel = TravelLevel.VALUE;
+        }
+
+        // table_name row_key family_name qualifier_name value pattern
+        try {
+            if (taskType == TaskType.CREATE) {
+                List<String> families = new ArrayList<String>();
+
+                for (int i = 2; i < args.length; i++) {
+                    families.add(args[i]);
+                }
+
+                patternMap.put(TABLE_NAME,        args[1]);
+                patternMap.put(FAMILY_NAME,       families);
+            } else if (taskType == TaskType.DESCRIBE) {
+                patternMap.put(TABLE_NAME,        Pattern.compile(args[1]));
+                patternMap.put(FAMILY_NAME,       Pattern.compile(args[2]));
+            } else if (taskType == TaskType.PUT) {
+                patternMap.put(TABLE_NAME,        args[1]);
+                patternMap.put(ROW_KEY,           args[2]);
+                patternMap.put(FAMILY_NAME,       args[3]);
+                patternMap.put(QUALIFIER_NAME,    args[4]);
+                patternMap.put(VALUE,             args[5]);
+            } else if (taskType == TaskType.FILTER) {
+                patternMap.put(COMMON,            Pattern.compile(args[args.length - 1]));
+
+                String[] args2 = new String[args.length - 1];
+                System.arraycopy(args, 0, args2, 0, args.length - 1);    // remove last arg
+
+                patternMap.put(TABLE_NAME,        Pattern.compile(args2[1]));
+                patternMap.put(ROW_KEY,           Pattern.compile(args2[2]));
+                patternMap.put(FAMILY_NAME,       Pattern.compile(args2[3]));
+                patternMap.put(QUALIFIER_NAME,    Pattern.compile(args2[4]));
+                patternMap.put(VALUE,             Pattern.compile(args2[5]));
+            } else {
+                patternMap.put(TABLE_NAME,        Pattern.compile(args[1]));
+                patternMap.put(ROW_KEY,           Pattern.compile(args[2]));
+                patternMap.put(FAMILY_NAME,       Pattern.compile(args[3]));
+                patternMap.put(QUALIFIER_NAME,    Pattern.compile(args[4]));
+                patternMap.put(VALUE,             Pattern.compile(args[5]));
+            }
+        } catch (ArrayIndexOutOfBoundsException e) {
+            // OK
+        }
+
+        // output parameter info
+        log.info("taskType              : " + taskType);
+
+        if (taskType == TaskType.LIST) {
+            log.info("travelLevel           : " + travelLevel);
+        }
+
+        if (patternMap.get(TABLE_NAME) != null) {
+            log.info("pattern-TableName     : " + patternMap.get(TABLE_NAME));
+        }
+
+        if (patternMap.get(ROW_KEY) != null) {
+            log.info("pattern-RowKey        : " + patternMap.get(ROW_KEY));
+        }
+
+        if (patternMap.get(FAMILY_NAME) != null) {
+            log.info("pattern-FamilyName    : " + patternMap.get(FAMILY_NAME));
+        }
+
+        if (patternMap.get(QUALIFIER_NAME) != null) {
+            log.info("pattern-QualifierName : " + patternMap.get(QUALIFIER_NAME));
+        }
+
+        if (patternMap.get(VALUE) != null) {
+            log.info("pattern-Value         : " + patternMap.get(VALUE));
+        }
+
+        if (patternMap.get(COMMON) != null) {
+            log.info("pattern-Common        : " + patternMap.get(COMMON));
+        }
+
+        log.info("---------------------------------------");
+
+        return true;
+    }
+
+    private static void doTask()
+    throws Exception {
+        if (taskType == TaskType.EXIT || taskType == TaskType.QUIT) {
+            System.exit(0);
+        }
+
+        if (taskType == TaskType.HELP) {
+            printHelp();
+            return;
+        }
+
+        String     taskClassName = "task.Task_" + taskType.toString().toLowerCase();
+        Class< ? > clazz         = null;
+
+        try {
+            clazz = Class.forName(taskClassName);
+        } catch (ClassNotFoundException e) {
+            log.error(null, e);
+            return;
+        }
+
+        Class< ? > [] parameterTypes = new Class[] { Map.class };
+        Constructor< ? > constructor = clazz.getConstructor(parameterTypes);
+
+        Task task = (Task) constructor.newInstance(new Object[] { patternMap});
+        task.go();
+    }
+
+    /**
+     * @param args
+     * @throws Exception
+     */
     public static void main(String[] args)
-    throws IOException {
+    throws Exception {
         init();
 
-        do {
-            String[] cmdArgs = (sessionMode == SessionMode.single) ? args : getCmdArgs();
+        String[] cmdArgs = null;
 
-            if (cmdArgs.length == 0) {
-                if (sessionMode == SessionMode.single) {
-                    cmdArgs = DEFAULT_CMD_ARGS_FOR_SINGLE_SESSION;
-                } else {
+        do {
+            initCmd();
+
+            if (sessionMode == SessionMode.single) {
+                cmdArgs = args;
+
+                if (!parseArgs(cmdArgs)) {
+                    printHelp();
+                    break;
+                }
+            } else {
+                System.out.print("> ");
+                cmdArgs = getCmdArgs();
+
+                if (!parseArgs(cmdArgs)) {
                     continue;
                 }
             }
 
             Date start = new Date();
-
-            try {
-                doTask(cmdArgs);
-            } catch (Exception e) {         // all exceptions
-                log.error(null, e);
-
-                if (sessionMode == SessionMode.single) {
-                    break;
-                } else {
-                    continue;
-                }
-            }
-
+            doTask();
             Date stop = new Date();
 
             double timeUsed = (stop.getTime() - start.getTime()) / 1000.0;
@@ -175,82 +379,26 @@ public class HBShell {
             log.stopLogToFile();
             log.info("時間　　    ：" + timeUsed + " [sec]");
             log.info("");
-
-            historyAdd(cmdArgs);
         } while (sessionMode == SessionMode.multi);
 
         exit();
     }
 
-    private static void historyAdd(String[] cmdArgs)
-    throws IOException {
-        String cmd = Utils.join(cmdArgs, " ");
-
-        if (!cmd.equals(lastCmd)) {
-            lastCmd = cmd;
-            FileUtils.writeStringToFile(historyFile, cmd + LINE_SEPARATOR, ENCODING, true);
-        }
-    }
-
-    public static boolean confirmFor(String message)
-    throws IOException {
-        String userInput = getUserInput(message + " \t" + CONFIRM_YES + "/[no] : ");
-        return userInput.equals(CONFIRM_YES);
-    }
-
     private static String[] getCmdArgs()
-    throws IOException {
-        return getTokens(getUserInput("> "));
-    }
-
-    private static String getUserInput(String prompt)
     throws IOException {
         String line = null;
 
-        if (Utils.isLinux()) {
-            line = getConsoleReader().readLine(prompt);
-        } else {
-            System.out.print(prompt);
-
-            try {
-                line = getInputScanner().nextLine();
-            } catch (NoSuchElementException e) {
-                // user may press ^C (first input)
-                // the following lines may not be run
-                log.warn(null, e);
-                System.exit(-1);
-            }
+        try {
+            line = inputScanner.nextLine();
+        } catch (NoSuchElementException e) {
+            // user may press ^C (first input)
+            // the following lines may not be run
+            log.warn(null, e);
+            System.exit(-1);
         }
 
-        return line;
-    }
-
-    private static Scanner getInputScanner() {
-        if (inputScanner != null) {
-            return inputScanner;
-        }
-
-        inputScanner = new Scanner(System.in);
-        return inputScanner;
-    }
-
-    private static ConsoleReader getConsoleReader()
-    throws IOException {
-        if (consoleReader != null) {
-            return consoleReader;
-        }
-
-        consoleReader = new MyConsoleReader();
-        consoleReader.setBellEnabled(false);    // bell does not work correctly, so disable it
-
-        return consoleReader;
-    }
-
-    private static void closeInputScanner() {
-        if (inputScanner != null) {
-            inputScanner.close();
-            inputScanner = null;
-        }
+        String[]  cmdArgs = getTokens(line);
+        return cmdArgs;
     }
 
     private static String[] getTokens(String input) {

@@ -1,91 +1,69 @@
 package task;
 
 import java.io.IOException;
-
-import org.apache.hadoop.hbase.client.HTable;
+import java.util.Map;
+import main.HBShell;
 
 import utils.Utils;
 
 public class Task_delete extends TaskBase {
-    @Override
-    protected String description() {
-        return "delete data in database with given filter\n" +
-               "\n" +
-               "** WARNING : 'delete'(and its alias) will delete all tables in database\n" +
-               "** NOTE    : use 'delete! ...' to force delete";
+    public Task_delete(Map<String, Object> patternMap) {
+        super(patternMap);
     }
 
     @Override
-    protected String usage() {
-        return "delete [table_pattern [row_pattern [family_pattern [qualifier_pattern [value_pattern]]]]]";
-    }
-
-    @Override
-    public String example() {
-        return "delete ^test_table family1";
-    }
-
-    @Override
-    protected boolean checkArgNumber(int argNumber) {
-        return 0 <= argNumber && argNumber <= 5;
-    }
-
-    @Override
-    protected Level getLevel() {
-        if (levelParam.size() > 0) {
-            return Level.values()[levelParam.size() - 1];
-        }
-
-        return Level.TABLE;
-    }
-
-    @Override
-    protected boolean needConfirm() {
-        return true;
-    }
-
-    @Override
-    protected boolean notifyEnabled() {
-        return true;
-    }
-
-    @Override
-    protected void foundTable(HTable table)
+    public void go()
     throws IOException {
-        if (level == Level.TABLE) {
-            Utils.deleteTable(Utils.bytes2str(table.getTableName()));
+        travelDatabase();
+    }
+
+    @Override
+    protected void foundTable(String tableName)
+    throws IOException {
+        super.foundTable(tableName);
+
+        if (HBShell.travelLevel == TravelLevel.TABLE) {
+            Utils.deleteTable(tableName);
         }
     }
 
     @Override
-    protected void foundRow(HTable table, String row)
+    protected void foundRowKey(String tableName, String rowKey)
     throws IOException {
-        if (level == Level.ROW) {
-            Utils.deleteRow(table, row);
+        super.foundRowKey(tableName, rowKey);
+
+        if (HBShell.travelLevel == TravelLevel.ROW) {
+            Utils.deleteRow(currentTable, rowKey);
         }
     }
 
     @Override
-    protected void foundFamily(HTable table, String row, String family)
+    protected void foundFamilyName(String tableName, String rowKey, String familyName)
     throws IOException {
-        if (level == Level.FAMILY) {
-            Utils.deleteFamily(table, row, family);
+        super.foundFamilyName(tableName, rowKey, familyName);
+
+        if (HBShell.travelLevel == TravelLevel.FAMILY) {
+            Utils.deleteFamily(currentTable, rowKey, familyName);
         }
     }
 
     @Override
-    protected void foundQualifier(HTable table, String row, String family, String qualifier)
+    protected void foundQualifierName(String tableName, String rowKey, String familyName, String qualifierName)
     throws IOException {
-        if (level == Level.QUALIFIER) {
-            Utils.deleteQualifier(table, row, family, qualifier);
+        super.foundQualifierName(tableName, rowKey, familyName, qualifierName);
+
+        if (HBShell.travelLevel == TravelLevel.QUALIFIER) {
+            Utils.deleteQualifier(currentTable, rowKey, familyName, qualifierName);
         }
     }
 
     @Override
-    protected void foundValue(HTable table, String row, String family, String qualifier, String value)
+    protected void foundValue(String tableName, String rowKey, String familyName, String qualifierName, String value)
     throws IOException {
-        if (level == Level.VALUE) {
-            Utils.deleteQualifier(table, row, family, qualifier);
+        super.foundValue(tableName, rowKey, familyName, qualifierName, value);
+
+        if (HBShell.travelLevel == TravelLevel.VALUE) {
+            Utils.deleteQualifier(currentTable, rowKey, familyName, qualifierName);
         }
     }
 }

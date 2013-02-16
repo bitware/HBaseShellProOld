@@ -1,6 +1,7 @@
 package task;
 
 import java.io.IOException;
+import java.util.Map;
 
 import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.client.HTable;
@@ -8,49 +9,31 @@ import org.apache.hadoop.hbase.client.HTable;
 import utils.Utils;
 
 public class Task_clear extends TaskBase {
-    @Override
-    protected String description() {
-        return "clear table contents\n" +
-               "\n" +
-               "** WARNING : 'clear'(and its alias) will clear contents of all tables in database\n" +
-               "** NOTE    : use 'clear! ...' to force clear";
+    public Task_clear(Map<String, Object> patternMap) {
+        super(patternMap);
     }
 
     @Override
-    protected String usage() {
-        return "clear [table_pattern]";
-    }
-
-    @Override
-    public String example() {
-        return "clear ^test_table";
-    }
-
-    @Override
-    protected boolean checkArgNumber(int argNumber) {
-        return argNumber == 0 || argNumber == 1;
-    }
-
-    @Override
-    protected Level getLevel() {
-        return Level.TABLE;
-    }
-
-    @Override
-    protected boolean needConfirm() {
-        return true;
-    }
-
-    @Override
-    protected boolean notifyEnabled() {
-        return true;
-    }
-
-    @Override
-    protected void foundTable(HTable table)
+    public void go()
     throws IOException {
-        HTableDescriptor descriptor = table.getTableDescriptor();
-        Utils.deleteTable(Utils.bytes2str(table.getTableName()));
+        travelDatabase();
+    }
+
+    @Override
+    protected void foundTable(String tableName)
+    throws IOException {
+        super.foundTable(tableName);
+
+        HTable           hTable     = Utils.getTable(tableName);
+        HTableDescriptor descriptor = null;
+
+        try {
+            descriptor = hTable.getTableDescriptor();
+        } finally {
+            hTable.close();
+        }
+
+        Utils.deleteTable(tableName);
         Utils.createTable(descriptor);
     }
 }

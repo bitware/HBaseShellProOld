@@ -3,17 +3,14 @@ package utils;
 import java.awt.event.KeyEvent;
 import java.io.File;
 import java.io.IOException;
-import java.io.RandomAccessFile;
 import java.io.UnsupportedEncodingException;
-import java.net.URL;
-import java.security.CodeSource;
-import java.security.ProtectionDomain;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.HColumnDescriptor;
 import org.apache.hadoop.hbase.HTableDescriptor;
@@ -23,6 +20,10 @@ import org.apache.hadoop.hbase.client.HBaseAdmin;
 import org.apache.hadoop.hbase.client.HTable;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.Result;
+
+import org.apache.hadoop.hbase.ZooKeeperConnectionException;
+
+
 
 public class Utils {
     private static final String UTF_8 = "UTF-8";
@@ -36,51 +37,12 @@ public class Utils {
         return trace[3];
     }
 
-    public static String getClassFilePath(Class< ? > refClass) {
-        ProtectionDomain pDomain = refClass.getProtectionDomain();
-        CodeSource       cSource = pDomain.getCodeSource();
-        URL              loc     = cSource.getLocation();
-
-        return loc.getPath();
-    }
-
-    public static String join(Object[] objects, String separator) {
-        StringBuffer sb = new StringBuffer();
-
-        for (Object object : objects) {
-            sb.append(object + separator);
-        }
-
-        // delete last separator
-        if (sb.length() > separator.length()) {
-            sb.delete(sb.length() - separator.length(), sb.length());
-        }
-
-        return sb.toString();
-    }
-
     //
     // os
     //
 
     public static boolean isLinux() {
         return fileExists("/dev/null");
-    }
-
-    //
-    // path
-    //
-
-    public static String getParentPath(String path) {
-        File   file       = new File(path);
-        String parentPath = file.getParent();
-
-        return unixStylePath(parentPath);
-    }
-
-    private static String unixStylePath(String path) {
-        // change "\\" -> "/" on windows
-        return path.replaceAll("\\\\", "/");
     }
 
     //
@@ -109,73 +71,18 @@ public class Utils {
         return file.getPath();
     }
 
-    public interface FoundLine {
-        // return true to end search, false to continue
-        boolean foundLine(String line);
-    }
-
-    public static void searchFileFromEnd(String fileName, FoundLine foundLine)
-    throws IOException {
-        File             file       = new File(fileName);
-        RandomAccessFile rf         = new RandomAccessFile(file, "r");
-        long             fileLength = file.length();
-        StringBuilder    sb         = new StringBuilder();
-        boolean          endSearch  = false;
-
-        try {
-            // read from end
-            for (long filePointer = fileLength - 1; filePointer != -1; filePointer--) {
-                rf.seek(filePointer);
-
-                int b = rf.readByte();
-
-                if (b == '\r') {
-                    continue;
-                } else if (b == '\n') {
-                    endSearch = foundLine.foundLine(sb.reverse().toString());
-
-                    if (endSearch) {
-                        break;
-                    }
-
-                    // prepare to collect another line
-                    sb = new StringBuilder();
-                } else {
-                    sb.append((char)b);
-                }
-            }
-
-            if (!endSearch) {
-                // first line of the file
-                foundLine.foundLine(sb.reverse().toString());
-            }
-        } finally {
-            rf.close();
-        }
-    }
-
     //
     // bytes
     //
 
-    public static String bytes2str(byte[] bytes) {
-        try {
-            return new String(bytes, UTF_8);
-        } catch (UnsupportedEncodingException e) {
-            RootLog.getLog().error(null, e);
-        }
-
-        return null;
+    public static String bytes2str(byte[] bytes)
+    throws UnsupportedEncodingException {
+        return new String(bytes, UTF_8);
     }
 
-    public static String bytes2str(byte[] bytes, int offset, int length) {
-        try {
-            return new String(bytes, offset, length, UTF_8);
-        } catch (UnsupportedEncodingException e) {
-            RootLog.getLog().error(null, e);
-        }
-
-        return null;
+    public static String bytes2str(byte[] bytes, int offset, int length)
+    throws UnsupportedEncodingException {
+        return new String(bytes, offset, length, UTF_8);
     }
 
     public static String getHexStringBase(byte[] bytes, int length, boolean show0x) {
@@ -242,35 +149,22 @@ public class Utils {
     // hbase
     //
 
-    private static final String       HBASE_CONF_FILE        = "./conf/hbase-site.xml";
-    private static final String       HBASE_ZOOKEEPER_QUORUM = "hbase.zookeeper.quorum";
-    private static final int          MAX_VERSIONS           = 1;
-    private static HBaseConfiguration m_hBaseConfiguration   = null;
+    private static final String       HBASE_CONF_FILE      = "./conf/hbase-site.xml";
+    private static final int          MAX_VERSIONS         = 1;
+    
+    private static Configuration m_hBaseConfiguration = null;
 
-    public static HBaseConfiguration conf() {
+    public static Configuration conf() {
         if (m_hBaseConfiguration == null) {
-            setDefaultHBaseConfiguration();
-        }
+            m_hBaseConfiguration = HBaseConfiguration.create();
 
+            m_hBaseConfiguration.addResource(new Path(HBASE_CONF_FILE));
+        }
         return m_hBaseConfiguration;
     }
 
-    public static String getQuorums() {
-        return conf().get(HBASE_ZOOKEEPER_QUORUM);
-    }
-
-    public static void setQuorums(String quorums) {
-        setDefaultHBaseConfiguration();
-        m_hBaseConfiguration.set(HBASE_ZOOKEEPER_QUORUM, quorums);
-    }
-
-    private static void setDefaultHBaseConfiguration() {
-        m_hBaseConfiguration = new HBaseConfiguration();
-        m_hBaseConfiguration.addResource(new Path(HBASE_CONF_FILE));
-    }
-
     public static HTableDescriptor[] listTables()
-    throws IOException {
+    throws MasterNotRunningException, IOException {
         HBaseAdmin hBaseAdmin = new HBaseAdmin(conf());
         return hBaseAdmin.listTables();
     }
@@ -284,12 +178,22 @@ public class Utils {
 
     public static boolean tableExists(String tableName)
     throws MasterNotRunningException {
-        HBaseAdmin hBaseAdmin = new HBaseAdmin(conf());
-        return hBaseAdmin.tableExists(tableName);
+        boolean ret = false;
+        try {
+            HBaseAdmin hBaseAdmin = new HBaseAdmin(conf());
+            ret = hBaseAdmin.tableExists(tableName);
+        } catch (MasterNotRunningException e) {  
+            e.printStackTrace();              
+        } catch (ZooKeeperConnectionException e) {  
+            e.printStackTrace();  
+        } catch (IOException e) {  
+            e.printStackTrace();  
+        }
+        return ret;
     }
 
     public static void createTable(String tableName, List< ? > families)
-    throws IOException {
+    throws MasterNotRunningException, IOException {
         HTableDescriptor tableDescriptor = new HTableDescriptor(tableName.getBytes());
 
         for (Object family : families) {
@@ -303,7 +207,7 @@ public class Utils {
     }
 
     public static void createTable(HTableDescriptor tableDescriptor)
-    throws IOException {
+    throws IOException, MasterNotRunningException {
         new HBaseAdmin(conf()).createTable(tableDescriptor);
     }
 
@@ -321,7 +225,8 @@ public class Utils {
 
     // result
 
-    public static String resultGetRowKey(Result result) {
+    public static String resultGetRowKey(Result result)
+    throws UnsupportedEncodingException {
         byte[] bRowKey = result.getRow();
         return bytes2str(bRowKey);
     }
@@ -372,7 +277,7 @@ public class Utils {
         RootLog.getLog().info(rowKey + "/" + family + ":" + qualifier);
 
         Delete delete = new Delete(rowKey.getBytes());
-        delete.deleteColumns(family.getBytes(), qualifier.getBytes());
+        delete.deleteColumn(family.getBytes(), qualifier.getBytes());
         hTable.delete(delete);
     }
 }

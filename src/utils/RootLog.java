@@ -1,5 +1,7 @@
 package utils;
 
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.util.Properties;
 
 import org.apache.commons.logging.Log;
@@ -17,7 +19,13 @@ public class RootLog {
     }
 
     private static void init() {
-        Properties properties = PropertiesHelper.getPropertiesBase(LOG4J_CONF_FILE);
+        Properties properties = new Properties();
+
+        try {
+            properties.load(new FileInputStream(LOG4J_CONF_FILE));
+        } catch (IOException e) {
+            getLog().error(null, e);
+        }
 
         // configure log4j
         PropertyConfigurator.configure(properties);

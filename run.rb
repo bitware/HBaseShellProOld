@@ -4,7 +4,7 @@
 # will be built automatically if necessary
 #
 # Usage:
-#  > ruby run.rb [parameters_passed_to_java_program]
+#  > ruby ruby.rb [parameters_passed_to_java_program]
 #
 
 require 'find'
@@ -22,7 +22,6 @@ THIS_FILE_DIR   = File.dirname(THIS_FILE_PATH)
 # main class related constances
 MAIN_CLASS_NAME = File.basename(THIS_FILE_DIR)
 MAIN_CLASS_FILE = "#{BIN_DIR}/main/#{MAIN_CLASS_NAME}.class"
-VERSION_FILE    = "#{SRC_DIR}/main/Version.java"
 MAIN_CLASS      = "main.#{MAIN_CLASS_NAME}"
 
 # platform(linux or windows) related constances
@@ -66,10 +65,6 @@ def main_class_file_not_found()
     !File.exists?(MAIN_CLASS_FILE)
 end
 
-def version_file_not_found()
-    !File.exists?(VERSION_FILE)
-end
-
 def run_java()
     # get files
     source_files = get_files(SRC_DIR, 'java')
@@ -83,12 +78,8 @@ def run_java()
     compiled_ok = true
 
     # build class files if necessary
-    if main_class_file_not_found || version_file_not_found || class_files_out_of_date(source_files, class_files)
+    if main_class_file_not_found || class_files_out_of_date(source_files, class_files)
         FileUtils.mkpath BIN_DIR
-
-        source_files << VERSION_FILE
-        exec_cmd 'ruby create_version_file.rb'
-
         compiled_ok = exec_cmd "javac -encoding UTF-8 -d #{BIN_DIR} -classpath #{classpath_for_compile} #{source_files.join(' ')}"
     end
 

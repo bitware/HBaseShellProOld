@@ -18,7 +18,6 @@ public class ResultLog {
     private File    file          = null;
     private boolean startNew      = false;  // log to a new file
     private boolean stopLogToFile = false;  // logger.result defined in LOG4J_CONF_FILE will go on
-    private boolean infoEnabled   = true;   // info log enabled?
 
     private ResultLog() {
         // call RootLog methods to make sure
@@ -32,42 +31,38 @@ public class ResultLog {
 
     public void startNew() {
         this.startNew = true;
-        enableInfo(true);
     }
 
     public void stopLogToFile() {
         this.stopLogToFile = true;
     }
 
-    public void enableInfo(boolean enabled) {
-        this.infoEnabled = enabled;
-    }
-
-    public void info(String string) {
-        if (!infoEnabled) {
-            return;
-        }
-
+    public void info(String string)
+    throws IOException {
         logger_result().info(string);
         appendToLogFile(string);
     }
 
-    public void warn(String string) {
+    public void warn(String string)
+    throws IOException {
         logger_result().warn(string);
         appendToLogFile(string);
     }
 
-    public void warn(String string, Throwable e) {
+    public void warn(String string, Throwable e)
+    throws IOException {
         RootLog.getLog().warn(string, e);
         logError(string, e);
     }
 
-    public void error(String string) {
+    public void error(String string)
+    throws IOException {
         logger_result().error(string);
         appendToLogFile(string);
     }
 
-    public void error(String string, Throwable e) {
+    public void error(String string, Throwable e)
+    throws IOException {
         RootLog.getLog().error(string, e);
         logError(string, e);
     }
@@ -77,8 +72,9 @@ public class ResultLog {
         return LogFactory.getLog(NAME);
     }
 
-    private void logError(String string, Throwable e) {
-        String errorMessage = e.toString();
+    private void logError(String string, Throwable e)
+    throws IOException {
+        String errorMessage = e.getMessage();
 
         if (string != null) {
             errorMessage += "[" + string + "]";
@@ -90,7 +86,8 @@ public class ResultLog {
         appendToLogFile(errorMessage);
     }
 
-    private void appendToLogFile(String string) {
+    private void appendToLogFile(String string)
+    throws IOException {
         if (file == null || startNew) {
             this.file          = new File(newLogFilePath());
             this.startNew      = false;
@@ -101,27 +98,23 @@ public class ResultLog {
             return;
         }
 
-        try {
-            FileUtils.writeStringToFile(file, string + LINE_SEPARATOR, ENCODING, true);
-        } catch (IOException e) {
-            RootLog.getLog().error(string, e);
-        }
+        FileUtils.writeStringToFile(file, string + LINE_SEPARATOR, ENCODING, true);
     }
 
     private static String newLogFilePath() {
-        String lastLogFilePath = getLogFilePath(HBShell.maxResultLogFileCount - 1);
+        String lastLogFilePath = getLogFilePath(HBShell.MaxResultLogFileCount - 1);
 
         if (Utils.fileExists(lastLogFilePath)) {
             Utils.deleteFile(getLogFilePath(0));
 
-            for (int i = 1; i < HBShell.maxResultLogFileCount; i++) {
+            for (int i = 1; i < HBShell.MaxResultLogFileCount; i++) {
                 Utils.renameFile(getLogFilePath(i), getLogFilePath(i - 1));
             }
 
             return lastLogFilePath;
         }
 
-        for (long i = HBShell.maxResultLogFileCount - 2; i >= 0; i--) {
+        for (long i = HBShell.MaxResultLogFileCount - 2; i >= 0; i--) {
             if (Utils.fileExists(getLogFilePath(i))) {
                 return getLogFilePath(i + 1);
             }

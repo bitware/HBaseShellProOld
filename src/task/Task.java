@@ -1,15 +1,8 @@
 package task;
 
 import java.io.IOException;
-import java.util.List;
 
 public interface Task {
-    void doTask(String[] args)
+    public void go()
     throws IOException;
-
-    void printHelp();
-
-    List< ? > alias();
-
-    String example();
 }
